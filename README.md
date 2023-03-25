@@ -86,5 +86,9 @@ per minute (`-rt`).
 The `-tel` option allows you to set the telescope name in the output filterbank 
 header.  Right now, you can just give one of the three DSN dish names.
 
+All of the files produced in the processing will be place in the output 
+directory.  In the case of this example, that is just the current working 
+directory.
+
 
 

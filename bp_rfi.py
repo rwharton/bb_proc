@@ -1,8 +1,7 @@
 import matplotlib
-#matplotlib.use("TkAgg")
-
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 import copy
 import time
 import multiprocessing as mp
@@ -58,7 +57,7 @@ def get_chan_info(data_file):
     return nchans, fch1, foff, dt
 
 
-def calc_bp_stats(infile):
+def calc_bp_stats(infile, med_bp=False):
     """
     get channel means (bandpass) and standard 
     deviations using your
@@ -67,6 +66,11 @@ def calc_bp_stats(infile):
     nspec = yr.your_header.nspectra 
     
     dat = yr.get_data(0, nspec)
+    if med_bp:
+        bpm = np.median(dat, axis=0)
+        bpm_inv = np.zeros(len(bpm))
+        bpm_inv[np.abs(bpm)>0] = 1.0 / bpm
+        dat = dat * bpm_inv
 
     bp_avg = np.mean(dat, axis=0)
     bp_std = np.std(dat, axis=0)
@@ -338,7 +342,9 @@ def bp_filter(bp_file, diff_thresh=0.10, val_thresh=0.1,
         eps = 1e-3 * np.min( abs_med[ abs_med > 0 ] )
     else:
         eps = 1e-3  
-    bp_diff = np.abs(bp - mov_median) / (abs_med + eps)
+    #bp_diff = np.abs(bp - mov_median) / (abs_med + eps)
+    #bp_diff /= np.median(mov_std)
+    bp_diff = np.abs(bp - mov_median) / np.median(mov_std)
 
     # Find mask chans from diff
     diff_mask = np.where( bp_diff >= diff_thresh )[0]
@@ -429,29 +435,73 @@ def calc_bp_stats_chunk(infile, tchunk):
     return tt, freqs, avg_bps, std_bps
 
 
-def make_plot(tt, ff, bp, outfile=None):
+def make_plot(tt, ff, bp, outfile=None, bpass=True):
     """
-    Make plot
-    """ 
+    Make 3 panel plot
+    """
     if outfile is not None:
         plt.ioff()
     else: pass
 
-    fig = plt.figure(figsize=(12,8))
-    ax = fig.add_subplot()
-    
-    ext = [ff[0], ff[-1], tt[0], tt[-1]]
+    fig = plt.figure(constrained_layout=True)
+    gs = GridSpec(4, 4, figure=fig)
+    #fig = plt.figure()
+    #gs = GridSpec(4, 4, figure=fig, wspace=0.1, hspace=0.1)
+
+    # Top axis for freq
+    ax_t  = fig.add_subplot(gs[0, 0:3])
+    # Middle for time/freq
+    ax_m = fig.add_subplot(gs[1:, 0:3])
+    # Right axis for time
+    ax_r  = fig.add_subplot(gs[1:, 3])
+    # Top right for text if nec
+    ax_txt = fig.add_subplot(gs[0, 3])
+
+    # Make middle time/freq
 
     # get median bp
-    bpm = np.median(bp, axis=0)
+    if bpass:
+        bpm = np.median(bp, axis=0)
+        bpm_inv = np.zeros(len(bpm))
+        bpm_inv[np.abs(bpm) > 0] = 1 / bpm[np.abs(bpm) > 0]
+        bp_plt = bp * bpm_inv
+    else:
+        bp_plt = bp
 
-    im = ax.imshow(bp/bpm, aspect='auto', interpolation='nearest', 
-                   origin='lower', vmin=0.75, vmax=1.25, extent=ext)
+    bp_med = np.median(bp_plt)
+    bp_sig = np.std(bp_plt)
 
-    cbar = plt.colorbar(im)
+    vmin = max( bp_med - 3 * bp_sig, 0)
+    vmax = bp_med + 3 * bp_sig
 
-    ax.set_xlabel("Frequency (MHz)", fontsize=16)
-    ax.set_ylabel("Time (s)", fontsize=16)
+    ext = [ff[0], ff[-1], tt[0], tt[-1]]
+
+    im = ax_m.imshow(bp_plt, aspect='auto', interpolation='nearest',
+                     origin='lower', vmin=vmin, vmax=vmax, extent=ext)
+
+    #cbar = plt.colorbar(im)
+
+    ax_m.set_xlabel("Frequency (MHz)", fontsize=16)
+    ax_m.set_ylabel("Time (s)", fontsize=16)
+
+    # Make top plot of freq
+    fbp = np.mean(bp_plt, axis=0)
+    #fbp_sig = np.std(fbp)
+    #ax_t.plot(ff, fbp/fbp_sig)
+    ax_t.plot(ff, fbp)
+    ax_t.set_xlim(ff[0], ff[-1])
+    ax_t.tick_params(axis='x', labelbottom=False, direction='in')
+
+    # Make right plot of time
+    tbp = np.mean(bp_plt, axis=1)
+    #tbp_sig = np.std(tbp)
+    #ax_r.plot(tbp/tbp_sig, tt)
+    ax_r.plot(tbp, tt)
+    ax_r.set_ylim(tt[0], tt[-1])
+    ax_r.tick_params(axis='y', labelleft=False, direction='in')
+
+    # text ?
+    ax_txt.axis('off')
 
     if outfile is not None:
         plt.savefig(outfile, dpi=100, bbox_inches='tight')
@@ -460,27 +510,33 @@ def make_plot(tt, ff, bp, outfile=None):
         plt.show()
 
     return
-     
 
-def rfi_plot(infile, tchunk, outdir):
+
+def rfi_plot(infile, tchunk, outbase, bpass=True):
     """
-    Using the averaged file, make a plot showing the 
-    mean and std of bandpass over time chunk tchunk 
+    Using the averaged file, make a plot showing the
+    mean and std of bandpass over time chunk tchunk
     seconds
     """
     # get data
     tt, freqs, bpa, bps = calc_bp_stats_chunk(infile, tchunk)
 
-    # outfiles 
-    avg_outfile = "%s/bp_avg_%ds.png" %(outdir, int(tchunk))
-    std_outfile = "%s/bp_std_%ds.png" %(outdir, int(tchunk))
+    # outfiles
+    avg_out = "%s_avg_%ds" %(outbase, int(tchunk))
+    std_out = "%s_std_%ds" %(outbase, int(tchunk))
+
+    if bpass:
+        avg_out += "_bpcorr"
+        std_out += "_bpcorr"
+
+    avg_outfile = "%s.png" %avg_out
+    std_outfile = "%s.png" %std_out
+
 
     # Make avg plot
-    make_plot(tt, freqs, bpa, outfile=avg_outfile)
-    
+    make_plot(tt, freqs, bpa, outfile=avg_outfile, bpass=bpass)
+
     # Make std plot
-    make_plot(tt, freqs, bps, outfile=std_outfile)
+    make_plot(tt, freqs, bps, outfile=std_outfile, bpass=bpass)
 
     return
-
-    

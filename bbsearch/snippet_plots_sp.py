@@ -132,6 +132,89 @@ def dspec_avg_time(dspec, tt, avg_tsamp=1):
 ##  Get data / Make Plot  ##
 ############################
 
+def read_bpass(bp_file):
+    """
+    Get bandpass from file 
+    """
+    dat = np.loadtxt(bp_file)
+    freqs = dat[:, 0]
+    bp = dat[:, 1]
+    return freqs, bp
+
+
+def chans_from_zapstr(zstr):
+    """
+    Convert comma separated list of channels 
+    to array and treat colons as ranges min:max:sep
+    """
+    chans = []
+    for zz in zstr.split(','):
+        if ":" in zz:
+            zrange = zz.split(':')
+            zlo = int(zrange[0])
+            zhi = int(zrange[1])
+            zlist = np.arange(zlo, zhi+1, 1).tolist()
+        else:
+            zlist = [int(zz)]
+        chans += zlist
+    zchans = np.unique( chans )
+    return zchans
+
+
+def get_snippet_data2(filfile, dm, favg=1, tavg=1, 
+                      bpass=True, bpfile=None, 
+                      zapstr=""):
+    """
+    Use your to read data and get metadata
+    """
+    # Get info
+    nchans, fch1, foff, dt = get_chan_info(filfile)
+    yr = your.Your(filfile)
+    nsamps = yr.your_header.nspectra
+    freqs = np.arange(nchans) * foff + fch1
+    tt = np.arange(nsamps) * dt
+    tt -= np.mean(tt)
+
+    # Get data
+    dat = yr.get_data(0, yr.your_header.nspectra)
+
+    # Dedisperse
+    dout = dedisperse_dspec(dat.T, dm, freqs, freqs[0], dt)
+    dout = dout.T
+
+    # Bandpass
+    if bpass:
+        if bpfile is None:
+            Nthird = int( nsamps / 3 )
+            bp = np.mean(dout[:Nthird], axis=0)
+        else:
+            fbp, bp = read_bpass(bpfile)
+        dout = dout/bp - 1
+    else: pass
+
+    # Zap chans -- replace with median
+    if len(zapstr):
+        zchans = chans_from_zapstr(zapstr)
+        gchans = np.setdiff1d(np.arange(dout.shape[1]), zchans)
+        davg = np.mean(dout[:, gchans])
+        #print(davg)
+        dout[:, zchans] = davg
+
+    # Average in time (if desired)
+    if tavg > 1:
+        tt_out, dout = dspec_avg_time(dout, tt, avg_tsamp=tavg)
+    else:
+        tt_out = tt
+
+    # Average in freq (if desired)
+    if favg > 1:
+        ff_out, dout = dspec_avg_chan(dout, freqs, avg_chan=favg)
+    else:
+        ff_out = freqs
+
+    return tt_out, ff_out, dout
+
+
 def get_snippet_data(filfile, dm, favg=1, tavg=1, bpass=True):
     """
     Use your to read data and get metadata
@@ -174,7 +257,8 @@ def get_snippet_data(filfile, dm, favg=1, tavg=1, bpass=True):
 
 def make_plot(filfile, dm, favg=1, tavg=1, spec_sig=5,
               outbins=128, outfile=None, cnum=None,
-              ctime=None, cdm=None, cwidth=None):
+              ctime=None, cdm=None, cwidth=None, 
+              bpass=True, bpfile=None, zstr=""):
     """
     make 3 panel plot
     """
@@ -182,8 +266,11 @@ def make_plot(filfile, dm, favg=1, tavg=1, spec_sig=5,
         plt.ioff()
     else: pass
 
-    tt, freqs, dat = get_snippet_data(filfile, dm,
-                             favg=favg, tavg=tavg, bpass=True)
+    #tt, freqs, dat = get_snippet_data(filfile, dm,
+    #                         favg=favg, tavg=tavg, bpass=True)
+    tt, freqs, dat = get_snippet_data2(filfile, dm,
+                             favg=favg, tavg=tavg, bpass=bpass,
+                             bpfile=bpfile, zapstr=zstr)
     tt *= 1e3
     #tt0, _, dat0 = get_snippet_data(filfile, 0,
     #                         favg=favg, tavg=tavg, bpass=True)
@@ -256,7 +343,7 @@ def make_plot(filfile, dm, favg=1, tavg=1, spec_sig=5,
     tlo = tt[xx_lo]
     thi = tt[xx_hi]
     ax_t.fill_betweenx([-10, 100], tlo, thi, color='r', alpha=0.1)
-    print(tlo, thi)
+    #print(tlo, thi)
     ax_t.set_ylim(tylim)
 
     # Add cand info subplot
@@ -524,8 +611,10 @@ def get_fil_dict(fildir, basename):
     return fn_dict
 
     
-def make_snippet_plots(sp, fildir, basename, snr_min=7, wmax=-1, 
-                       t_dec=-1, f_dec=1, outbins=128, rmax=-1):
+def make_snippet_plots(sp, fildir, basename, outdir='.', 
+                       snr_min=7, wmax=-1, t_dec=-1, f_dec=1, 
+                       outbins=128, rmax=-1,
+                       bpass=True, bpfile=None, zstr=""):
     """
     Make plots from snippet filterbanks
 
@@ -585,12 +674,13 @@ def make_snippet_plots(sp, fildir, basename, snr_min=7, wmax=-1,
         else:
             t_dec_fac = t_dec
 
-        outfile = "cand%04d.png" %cnum
+        outfile = "%s/cand%04d.png" %(outdir, cnum)
 
         make_plot(infile, cc.dm, favg=f_dec, tavg=t_dec_fac, 
                    cnum=cnum, ctime=cc.time, cdm=cc.dm, 
                    cwidth=cc.wbins, outbins=outbins, 
-                   outfile=outfile)
+                   outfile=outfile, bpass=bpass, bpfile=bpfile, 
+                   zstr=zstr)
         
     return 
 
@@ -739,7 +829,7 @@ def snr_summary(csift, clist, title=None, outfile=None):
     return
 
 
-def make_summary_plots(spfile, fildir, basename, rmax=-1):
+def make_summary_plots(spfile, fildir, basename, outdir='.', rmax=-1):
     """
     make and save the two summary plots
 
@@ -747,7 +837,7 @@ def make_summary_plots(spfile, fildir, basename, rmax=-1):
     and the base of the outfile name
     """
     # get one fil file for params for sifting
-    fil_files = glob.glob("%s*fil" %basename)
+    fil_files = glob.glob("%s/%s*fil" %(fildir, basename))
     data_file = fil_files[0]
 
     clist = cands_from_spfile(spfile)
@@ -755,13 +845,13 @@ def make_summary_plots(spfile, fildir, basename, rmax=-1):
     
     # Time summary
     #time_file = "%s_time.png" %basename
-    time_file = "cand_time.png"
+    time_file = "%s/cand_time.png" %outdir
     time_summary(csift, clist, title=basename, 
                  outfile=time_file, rmax=rmax)
 
     # SNR summary 
     #snr_file = "%s_snr.png" %basename
-    snr_file = "cand_snr.png"
+    snr_file = "%s/cand_snr.png" %outdir
     snr_summary(csift, clist, title=basename, 
                 outfile=snr_file)
 
@@ -778,8 +868,12 @@ def parse_input():
     parser.add_argument('infile', help='Input *.singlepulse file')
     parser.add_argument('fildir', help='Filterbank file directory')
     parser.add_argument('-b', '--basename',
-                        help='Basename for filfiles.  Will search on basename*fil (default = all in fildir)',
+                        help='Basename for filfiles.  Will search '+\
+                             'on basename*fil (default = all in fildir)',
                         required=False, default="")
+    parser.add_argument('-o', '--outdir',
+                        help='Output directory for plots (default = .)', 
+                        required=False, default=".")
     parser.add_argument('-s', '--snr',
                         help='SNR threshold for plotting (default = all)',
                         required=False, type=float, default=-1)
@@ -799,6 +893,9 @@ def parse_input():
                         help='Max number of cands per minute '+\
                              '(default = -1, no limit)',
                         required=False, type=float, default=-1)
+    parser.add_argument('-z', '--zapchans',
+                        help='Comma separated list of channels to zap',
+                        required=False, default="")
     parser.add_argument('--no_cands', action='store_true',
                         help='Do NOT make candidate plots (default false)',
                         default=False)
@@ -810,6 +907,7 @@ def parse_input():
     
     infile = args.infile
     fildir = args.fildir
+    outdir = args.outdir
     bname = args.basename
     tdec = args.tdec
     fdec = args.fdec
@@ -817,11 +915,12 @@ def parse_input():
     wmax = args.wmax
     rmax = args.rmax
     nbins = args.nbins
+    zstr = args.zapchans
     skip_cands = args.no_cands
     skip_sum = args.no_sum
     
-    return infile, fildir, bname, tdec, fdec, snr, \
-           wmax, nbins, rmax, skip_cands, skip_sum
+    return infile, fildir, outdir, bname, tdec, fdec, snr, \
+           wmax, nbins, zstr, rmax, skip_cands, skip_sum
 
 debug = 0
 
@@ -830,12 +929,13 @@ if __name__ == "__main__":
         pass
 
     else:
-        infile, fildir, bname, tdec, fdec, snr, wmax, nbins, rmax, skip_cands, skip_sum = parse_input()
+        infile, fildir, outdir, bname, tdec, fdec, snr, wmax, nbins, zstr, rmax, skip_cands, skip_sum = parse_input()
 
         if not skip_sum:
-            make_summary_plots(infile, fildir, bname, rmax=rmax)
+            make_summary_plots(infile, fildir, bname, 
+                               outdir=outdir, rmax=rmax)
 
         if not skip_cands:
-            make_snippet_plots(infile, fildir, bname, snr_min=snr, 
-                               wmax=wmax, t_dec=tdec, f_dec=fdec, 
-                               outbins=nbins, rmax=rmax)
+            make_snippet_plots(infile, fildir, bname, outdir=outdir, 
+                               snr_min=snr, wmax=wmax, t_dec=tdec, f_dec=fdec, 
+                               outbins=nbins, rmax=rmax, zstr=zstr)

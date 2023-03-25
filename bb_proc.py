@@ -7,6 +7,9 @@ from subprocess import call
 from argparse import ArgumentParser
 import bp_rfi as bp_rfi
 
+########################
+## CHANGE DIR IF NEC ###
+########################
 srcdir = '/src/bb_proc'
 
 def convert_cs2fil(csdir, bname, outdir, nchan, dm, 
@@ -21,7 +24,7 @@ def convert_cs2fil(csdir, bname, outdir, nchan, dm,
     tstart = time.time()
 
     script_path = "%s/bb2fil/bb2fil_chunk.py" %srcdir
-    cmd = "python " +\
+    cmd = "python -u " +\
           "%s " %script_path +\
           "--basename %s " %bname +\
           "--cs_dir %s " %csdir +\
@@ -101,7 +104,7 @@ def run_search(filfile, outdir, nchan, nsub, dm, snr, mw,
     else:
         zdm_str = ""
     
-    cmd = "python %s " %script_path +\
+    cmd = "python -u %s " %script_path +\
           "%s" %bb_str +\
           "%s" %zdm_str +\
           "-dm %.4f " %dm +\
@@ -243,10 +246,14 @@ def main():
     # Also make a plot showing RFI 
     print("\n\n=== FINDING BAD CHANNELS ===")
     if rfi_tdec > 0:
-        dec_dur, rfi_fil = make_rfi_fil(filfile, outdir, nthread=nthread) 
+        dec_dur, rfi_fil = make_rfi_fil(filfile, outdir, tfac=rfi_tdec, 
+                                        nthread=nthread) 
         zap_str = bp_rfi.bp_bad_chans(rfi_fil, outdir, mode='avg', 
-                                      diff_thresh=0.05, nchan_win=32)
-        bp_rfi.rfi_plot(rfi_fil, 60, outdir)
+                                      diff_thresh=3, nchan_win=8)
+        #bp_rfi.rfi_plot(rfi_fil, 60, outdir)
+        outbase_rfi = "%s/bp" %outdir
+        bp_rfi.rfi_plot(rfi_fil, 60, outbase_rfi, bpass=True)
+        bp_rfi.rfi_plot(rfi_fil, 60, outbase_rfi, bpass=False)
     else:
         dec_dur = 0
         zap_str = ""

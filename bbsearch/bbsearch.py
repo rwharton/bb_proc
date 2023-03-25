@@ -1,6 +1,9 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
+########################
+## CHANGE DIR IF NEC ###
+########################
 scriptdir = "/src/bb_proc/bbsearch"
 
 import numpy as np
@@ -132,7 +135,7 @@ def del_chans_to_string(nums):
     return out_str
 
 
-def get_zap_chans(edgezap, nchansub, nsub, zchans=""):
+def get_zap_chans(edgezap, nchansub, nsub, zchans="", flip=True):
     """
     Generate a list of channels to zap from two options:
 
@@ -160,11 +163,11 @@ def get_zap_chans(edgezap, nchansub, nsub, zchans=""):
 
     # Get unique chans, flip for PRESTO, and make string
     if len(zap_list):
-        zap_list = np.unique(zap_list)[::-1]  
-        Nchans = nsub * nchansub
+        zap_list = np.unique(zap_list)
 
-        # Flip for PRESTO 
-        zap_list = Nchans - 1 - zap_list
+        if flip:
+            Nchans = nsub * nchansub
+            zap_list = Nchans - 1 - zap_list[::-1]
 
         # Get formatted string
         zap_chan_str = del_chans_to_string(zap_list)
@@ -242,7 +245,7 @@ def sp_search(datfile, snr, bb=False, maxwidth=1.0, dtrendlen=8):
     else:
         b_str = "-b "
 
-    sp_cmd = "python %s/single_pulse_search_w16ms.py " %scriptdir +\
+    sp_cmd = "python -u %s/single_pulse_search_w16ms.py " %scriptdir +\
              "-t %.2f " %snr +\
              "-m %.4f " %maxwidth +\
              "-d %d " %dtrendlen +\
@@ -270,7 +273,8 @@ def extract_snippets(filfile, outbase, splist, nspec):
     """
     # Get number of zeros to bad so cand nums
     # are all the same length
-    nz = int( np.log10(len(splist)) + 0.5 )
+    #nz = int( np.log10(len(splist)) + 0.5 )
+    nz = int( np.ceil(np.log10(len(splist))) )
       
     for ii, cc in enumerate(splist):
         print("Cand %d / %d" %(ii+1, len(splist)))
@@ -298,7 +302,8 @@ def your_extract_snippets(filfile, outbase, splist, nspec):
     """
     # Get number of zeros to bad so cand nums
     # are all the same length
-    nz = int( np.log10(len(splist)) + 0.5 )
+    #nz = int( np.log10(len(splist)) + 0.5 )
+    nz = int( np.ceil(np.log10(len(splist))) )
 
     # Get hdr info
     yr = your.Your(filfile)
@@ -478,19 +483,21 @@ def main():
 
     ### Make plots from candidates ###
     sbase = "%s_DM%.3f" %(filbase, dm)
-    # Set dec factor to get about 64 channels (min 8)
-    f_dec = max( int(nchans/64), 8 )
+    # Set dec factor to get about 100 channels
+    f_dec = max( int(nchans/100), 1 )
     nbins=100
     wmax=-1
     rmax=-1
 
     # Make summary plots
-    sp_plt.make_summary_plots(spfile, outdir, sbase, rmax=rmax)
+    sp_plt.make_summary_plots(spfile, outdir, sbase, 
+                              outdir=outdir, rmax=rmax)
 
     # Make cand plots
-    sp_plt.make_snippet_plots(spfile, outdir, sbase, snr_min=snr,
-                              wmax=wmax, t_dec=-1, f_dec=f_dec,
-                              outbins=nbins, rmax=rmax)
+    pzstr = get_zap_chans(ezap, nchansub, nsub, zchans=zap, flip=False)
+    sp_plt.make_snippet_plots(spfile, outdir, sbase, outdir=outdir, 
+                              snr_min=snr, wmax=wmax, t_dec=-1, f_dec=f_dec,
+                              outbins=nbins, rmax=rmax, zstr=pzstr)
 
 
 debug = 0

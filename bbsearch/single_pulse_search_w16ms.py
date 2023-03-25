@@ -21,7 +21,7 @@ class candidate(object):
         self.bin = bin
         self.downfact = downfact
     def __str__(self):
-        return "%7.2f %7.2f %13.6f %10d     %3d\n"%\
+        return "%7.2f %7.2f %13.6f %16d     %3d\n"%\
                (self.DM, self.sigma, self.time, self.bin, self.downfact)
     def __eq__(self, other):
         return (self.bin == other.bin)
@@ -305,19 +305,49 @@ def main():
     else:
         pgplot_device = ""
 
-    fftlen = 8192     # Should be a power-of-two for best speed
-    chunklen = 8000   # Must be at least max_downfact less than fftlen
-    assert(opts.detrendfact in [1,2,4,8,16,32])
-    detrendlen = opts.detrendfact*1000
-    if (detrendlen > chunklen):
-        chunklen = detrendlen
-        fftlen = int(next2_to_n(chunklen))
+    print(args)
+    # Assume all files have same tsamp and get it 
+    # from the first one
+    ftmp = args[0]
+    if ftmp.endswith(".dat"):
+        ftmp_base = ftmp[:ftmp.rfind(".dat")]
+    else:
+        ftmp_base = ftmp
+    info = infodata.infodata(ftmp_base+".inf")
+    dt = info.dt
+    
+    default_downfacts = [2, 3, 4, 6, 9, 14, 20, 30, 45, 70, 100, 150, 220, 
+                         300, 450, 700, 1000, 1500, 2400, 3600, 5400, 7200, 
+                         12000, 18000, 24000, 36000]
+
+    # Get a max downfact size
+    if opts.maxwidth > 0.0:
+        max_downfact = int(opts.maxwidth/dt)
+    else:
+        max_downfact = default_downfacts[-1]
+
+    if max_downfact > default_downfacts[-1]:
+        print("Desired max template width: %d bins (%.3f ms)" \
+               %(max_downfact, max_downfact*dt*1000))
+        print("is larger than max template size: %d (%.3f ms)" \
+               %(default_downfacts[-1], default_downfacts[-1]*dt*1000))
+        print(".... using that instead")
+        max_downfact = default_downfacts[-1]
+
+    # Detrend on timescale of ~0.1 sec
+    detrendlen = int(next2_to_n(int(0.1/dt)))
+    if detrendlen < 2 * max_downfact:
+        detrendlen = int(next2_to_n(2 * max_downfact))
+
+    fftlen = int(next2_to_n(detrendlen + max_downfact))
+    print(fftlen, detrendlen)
+    print("Detrend time: %.3f sec" %(detrendlen * dt))
+
+    chunklen = detrendlen
+
     blocks_per_chunk = chunklen // detrendlen
     overlap = (fftlen - chunklen) // 2
     worklen = chunklen + 2*overlap  # currently it is fftlen...
-
-    max_downfact = 8000
-    default_downfacts = [2, 3, 4, 6, 9, 14, 20, 30, 45, 70, 100, 150, 220, 300, 500, 1000, 2000, 4000, 8000]
 
     if args[0].endswith(".singlepulse"):
         filenmbase = args[0][:args[0].rfind(".singlepulse")]
@@ -433,6 +463,7 @@ def main():
             print("  Now searching...")
 
             # Now normalize all of the data and reshape it to 1-D
+            print("Normalizing data...")
             timeseries /= stds[:,np.newaxis]
             timeseries.shape = (roundN,)
             # And set the data in the bad blocks to zeros
@@ -446,7 +477,10 @@ def main():
 
             # Step through the data
             dm_candlist = []
+            pchunks = (numchunks * 0.01 * np.arange(0, 101, 5)).astype('int')
             for chunknum in range(numchunks):
+                if chunknum in pchunks:
+                    print("Processing chunk: %d/%d" %(chunknum+1, numchunks))
                 loind = chunknum*chunklen-overlap
                 hiind = (chunknum+1)*chunklen+overlap
                 # Take care of beginning and end of file overlap issues

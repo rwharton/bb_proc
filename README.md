@@ -4,7 +4,8 @@ End to end baseband processing for DSN data
 
 ## Usage 
 
-    usage: bb_proc.py [-h] -dm DM -nc NCHAN [-m MEMLIM] [-nt NTHREAD] [-rt RFIDEC] [-snr SNRMIN] [-ezap EDGEZAP] [-nsub NSUB]
+    usage: bb_proc.py [-h] -dm DM -nc NCHAN [-m MEMLIM] [-nt NTHREAD] 
+                      [-rt RFIDEC] [-snr SNRMIN] [-ezap EDGEZAP] [-nsub NSUB]
                       [-w WIDTH] [-mw MAXWIDTH] [--zerodm] [--badblocks] [-tel TEL]
                       csdir basename outdir
     
@@ -25,7 +26,8 @@ End to end baseband processing for DSN data
       -nt NTHREAD, --nthread NTHREAD
                             Number of threads for digifil processing (def: 1)
       -rt RFIDEC, --rfidec RFIDEC
-                            Number of samples to decimate filfile for RFI diagnostics (def: 512, to skip this: -1)
+                            Number of samples to decimate filfile for RFI 
+                            diagnostics (def: 512, to skip this: -1)
       -snr SNRMIN, --snrmin SNRMIN
                             Minimum SNR for single pulse search (def: 6.0)
       -ezap EDGEZAP, --edgezap EDGEZAP

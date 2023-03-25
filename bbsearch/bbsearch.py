@@ -1,11 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
 
-########################
-## CHANGE DIR IF NEC ###
-########################
-scriptdir = "/src/bb_proc/bbsearch"
-
 import numpy as np
 import glob
 import os
@@ -17,6 +12,10 @@ from subprocess import call
 from argparse import ArgumentParser
 import write_filterbank as wfil 
 import snippet_plots_sp as sp_plt
+
+#scriptdir = "/src/bb_proc/bbsearch"
+cur_dir = os.path.realpath(__file__)
+scriptdir  = cur_dir.rsplit('/', 1)[0]
 
 ############################
 ## Filterbank Parameters ##

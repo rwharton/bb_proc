@@ -7,10 +7,9 @@ from subprocess import call
 from argparse import ArgumentParser
 import bp_rfi as bp_rfi
 
-########################
-## CHANGE DIR IF NEC ###
-########################
-srcdir = '/src/bb_proc'
+#srcdir = '/src/bb_proc'
+cur_dir = os.path.realpath(__file__)
+srcdir  = cur_dir.rsplit('/', 1)[0]
 
 def convert_cs2fil(csdir, bname, outdir, nchan, dm, 
                    nthread, memlim):
@@ -252,8 +251,8 @@ def main():
                                       diff_thresh=3, nchan_win=8)
         #bp_rfi.rfi_plot(rfi_fil, 60, outdir)
         outbase_rfi = "%s/bp" %outdir
-        bp_rfi.rfi_plot(rfi_fil, 60, outbase_rfi, bpass=True)
-        bp_rfi.rfi_plot(rfi_fil, 60, outbase_rfi, bpass=False)
+        bp_rfi.rfi_plot(rfi_fil, 1, outbase_rfi, bpass=True)
+        bp_rfi.rfi_plot(rfi_fil, 1, outbase_rfi, bpass=False)
     else:
         dec_dur = 0
         zap_str = ""

@@ -840,6 +840,11 @@ def make_summary_plots(spfile, fildir, basename, outdir='.', rmax=-1):
     """
     # get one fil file for params for sifting
     fil_files = glob.glob("%s/%s*fil" %(fildir, basename))
+    if len(fil_files) == 0:
+        print("No snippet *.fil files found!")
+        return 
+    else: pass
+
     data_file = fil_files[0]
 
     clist = cands_from_spfile(spfile)

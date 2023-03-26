@@ -43,6 +43,37 @@ def convert_cs2fil(csdir, bname, outdir, nchan, dm,
     return tdur
 
 
+def check_rfi_tavg(nchan, tfac):
+    """
+    digifil will complain if nchan * tfac > 2^19
+    
+    Need to track down why that is and if you can 
+    change it.  In the meantime, we have this. 
+    """
+    if nchan * tfac >= 2**19:
+        tfac_max = max( int( 2**19 / nchan ), 1 )
+        if tfac_max > 10:
+            # Make it somewhat round 
+            tfac_out = (tfac_max // 10) * 10
+        else:
+            print("\n\n")
+            print("  Decimation only by factor of %d" %(tfac_max))
+            print("  Probably not worth it!!")
+            tfac_out = tfac_max
+            if tfac_max < 5:
+                print("\n")
+                print("  Since tfac < 5, it's definitely not worth it")
+                print("  Setting tfac to -1 (ie, skipping averaging)")
+                tfac_out = -1
+        print("\n\n")
+        print("  Reducing tfact from %d to %d b/c of digifil" %(tfac, tfac_out))
+        print("  limitation that nchan * tfac < 2**19")
+        print("\n\n")
+    else: tfac_out = tfac
+
+    return tfac_out
+
+
 def make_rfi_fil(filfile, outdir, tfac=512, nthread=1):
     """
     Use digifil to make a highly decimated version 
@@ -207,7 +238,7 @@ def main():
     nthread = args.nthread
     print("  Max Threads: %d" %nthread)
     rfi_tdec = args.rfidec
-    print("  RFI decimation factor: %d" %rfi_tdec)
+    print("  Input RFI decimation factor: %d" %rfi_tdec)
     snr = args.snrmin
     print("  Candidate SNR Threshold: %.1f" %snr)
     width = args.width
@@ -252,6 +283,7 @@ def main():
     # will check to see if the file already exits
     # Also make a plot showing RFI 
     print("\n\n=== FINDING BAD CHANNELS ===")
+    rfi_tdec = check_rfi_tavg(nchan, rfi_tdec)
     if rfi_tdec > 0:
         dec_dur, rfi_fil = make_rfi_fil(filfile, outdir, tfac=rfi_tdec, 
                                         nthread=nthread) 

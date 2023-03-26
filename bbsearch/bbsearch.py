@@ -273,7 +273,7 @@ def extract_snippets(filfile, outbase, splist, nspec):
     # Get number of zeros to bad so cand nums
     # are all the same length
     #nz = int( np.log10(len(splist)) + 0.5 )
-    nz = int( np.ceil(np.log10(len(splist))) )
+    nz = int( np.ceil(np.log10(len(splist)+1)) )
       
     for ii, cc in enumerate(splist):
         print("Cand %d / %d" %(ii+1, len(splist)))
@@ -302,7 +302,7 @@ def your_extract_snippets(filfile, outbase, splist, nspec):
     # Get number of zeros to bad so cand nums
     # are all the same length
     #nz = int( np.log10(len(splist)) + 0.5 )
-    nz = int( np.ceil(np.log10(len(splist))) )
+    nz = int( np.ceil(np.log10(len(splist)+1)) )
 
     # Get hdr info
     yr = your.Your(filfile)

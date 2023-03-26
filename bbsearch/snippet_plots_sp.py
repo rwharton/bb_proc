@@ -256,9 +256,9 @@ def get_snippet_data(filfile, dm, favg=1, tavg=1, bpass=True):
 
 
 def make_plot(filfile, dm, favg=1, tavg=1, spec_sig=5,
-              outbins=128, outfile=None, cnum=None,
+              outbins=128, outfile=None, cnum=None, 
               ctime=None, cdm=None, cwidth=None, 
-              bpass=True, bpfile=None, zstr=""):
+              csnr=None, bpass=True, bpfile=None, zstr=""):
     """
     make 3 panel plot
     """
@@ -357,7 +357,9 @@ def make_plot(filfile, dm, favg=1, tavg=1, spec_sig=5,
         outstr += "DM: %.2f\n" %cdm
     if cwidth is not None:
         outstr += "Width: %d bins\n" %cwidth
-    ax_txt.text(0.00, 0.8, outstr, fontsize=12, ha='left', va='top',
+    if csnr is not None:
+        outstr += "SNR: %.1f\n" %csnr
+    ax_txt.text(0.00, 0.9, outstr, fontsize=12, ha='left', va='top',
                 transform=ax_txt.transAxes)
 
     if outfile is not None:
@@ -678,7 +680,7 @@ def make_snippet_plots(sp, fildir, basename, outdir='.',
 
         make_plot(infile, cc.dm, favg=f_dec, tavg=t_dec_fac, 
                    cnum=cnum, ctime=cc.time, cdm=cc.dm, 
-                   cwidth=cc.wbins, outbins=outbins, 
+                   cwidth=cc.wbins, csnr=cc.snr, outbins=outbins, 
                    outfile=outfile, bpass=bpass, bpfile=bpfile, 
                    zstr=zstr)
         

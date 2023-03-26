@@ -329,6 +329,11 @@ def your_extract_snippets(filfile, outbase, splist, nspec):
 
             # start position in bytes
             nstart = (cc.samp - nspec//2) * nchans * bps + hdr_bytes
+            # If cand is at very start of file, make sure we 
+            # we don't back up into header
+            if nstart < hdr_bytes:
+                nstart = hdr_bytes
+              
             #print(nstart)
             fin.seek(nstart)
             #print(fin.tell())

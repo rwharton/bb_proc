@@ -4,44 +4,33 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 import copy
 import time
-import multiprocessing as mp
 import os
 import your 
-from numba import jit
 
-from subprocess import call
 
-def run_bp(infile, bpfile):
-    bp_cmd = "bandpass %s > %s" %(infile, bpfile)
-    print(bp_cmd)
-    call(bp_cmd, shell=True)
-    return 
-
-def calc_bandpass(infile, workdir):
+def get_win_num(nchans, nsub, wfrac=0.2, 
+                min_win=8, max_win=None):
     """
-    Calculate the bandpass for one input file
-    using the SIGPROC taksk bandpass
-
-    This will calculate the bandpass by averaging over all 
-    the full observation.  We may want to change this later 
-    to do it in segments or something to avoid having to 
-    flag a whole channel.
-
-    Return bp_file
+    Get window size for finding channel outliers 
+    in a bandpass.  We will shoot for about wfrac  
+    of a subband, but no fewer than min_win and no 
+    more than max_win
     """
-     
-    tstart = time.time()
-    
-    infname = infile.rsplit('/')[-1] 
-    inbase  = infname.rsplit('.', 1)[0]
-    bpfile = "%s/%s.bpass" %(workdir, inbase)
-    print(infile, bpfile)
-    run_bp(infile, bpfile)
-    
-    tstop = time.time()
-    print("Took %.1f minutes" %( (tstop-tstart)/60.))
-   
-    return bpfile
+    nchan_sub = max(nchans // nsub, 1)
+    nchan_win = int(nchan_sub * wfrac)
+
+    if min_win is not None:
+        if nchan_win < min_win:
+            nchan_win = min_win
+
+    if max_win is not None:
+        if nchan_win > max_win:
+            nchan_win = max_win
+
+    if nchan_win > nchan_sub:
+        nchan_win = nchan_sub
+
+    return nchan_win 
 
 
 def get_chan_info(data_file):
@@ -55,6 +44,38 @@ def get_chan_info(data_file):
     nchans = yr.your_header.nchans
 
     return nchans, fch1, foff, dt
+
+
+def get_time_info(data_file):
+    """
+    Get time info
+    """
+    yr = your.Your(data_file)
+    dt   = yr.your_header.tsamp
+    nsamps = yr.your_header.nspectra
+
+    return dt, nsamps
+
+
+def get_time_chunk(infile, tchunk, nt_min=4):
+    """
+    Get time chunk for calculating RFI stats.
+    This will return `tchunk` if the data length 
+    is sufficient to give `nt_min` chunks.  
+    Otherwise, it will return the biggest chunk 
+    such that you can get `nt_min`.
+    """ 
+    dt, nsamps = get_time_info(infile)
+    tdur = dt * nsamps
+    
+    nt = tdur // tchunk
+
+    if nt < nt_min:
+        tc_out = tdur / nt_min
+    else:
+        tc_out = tchunk
+
+    return tc_out
 
 
 def calc_bp_stats(infile, med_bp=False):
@@ -119,8 +140,6 @@ def your_calc_bandpass(infile, workdir):
     return avg_file, std_file
 
 
-
-
 def moving_median(data, window):
     """
     Calculate running median and stdev
@@ -166,33 +185,6 @@ def moving_median(data, window):
 
     return mov_median, mov_std;
 
-@jit(nopython=True)
-def movingAverage(data, window_size):
-    """
-    Compute the moving average using brute force numpy cumsum.
-    jit to make it faster
-    """
-    movingAvg = np.cumsum(data.astype(np.float64))
-    movingAvg[window_size:] = movingAvg[window_size:] - movingAvg[:-window_size]
-    movingAvg = movingAvg[window_size - 1:] / window_size
-
-    # Prepend/append elements to the front/end of the list.
-    appendLength = (len(data) - len(movingAvg)) / 2.0
-    if (np.mod(appendLength, 1.0) != 0.0):
-        prependArray = np.array([movingAvg[0]] * int(appendLength))
-        appendArray = np.array([movingAvg[-1]] * int(appendLength + 1))
-
-        movingAvg = np.concatenate((prependArray, movingAvg))
-        movingAvg = np.concatenate((movingAvg, appendArray))
-    else:
-        prependArray = np.array([movingAvg[0]] * int(appendLength))
-        appendArray = np.array([movingAvg[-1]] * int(appendLength))
-
-        movingAvg = np.concatenate((prependArray, movingAvg))
-        movingAvg = np.concatenate((movingAvg, appendArray))
-
-    return movingAvg
-    
 
 def read_bp(bp_filename):
     """

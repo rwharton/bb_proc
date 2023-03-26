@@ -225,7 +225,15 @@ def main():
     tel = args.tel
     print("  Telescope: %s" %tel)
     print("===================") 
-
+    
+    # Make sure output directory exists, 
+    # if it doesn't, print warning and exit
+    if not os.path.exists(outdir):
+        print("outdir not found: %s" %outdir)
+        print("Make sure outdir exists, then try again")
+        sys.exit(0)
+    else: pass
+        
     # If filterbank does not already exists,
     # then run the baseband to filterbank 
     # conversion
@@ -247,12 +255,16 @@ def main():
     if rfi_tdec > 0:
         dec_dur, rfi_fil = make_rfi_fil(filfile, outdir, tfac=rfi_tdec, 
                                         nthread=nthread) 
+        # Find bad channels from bandpass       
+        nchan_win = bp_rfi.get_win_num(nchan, nsub, wfrac=0.2) 
         zap_str = bp_rfi.bp_bad_chans(rfi_fil, outdir, mode='avg', 
-                                      diff_thresh=3, nchan_win=8)
-        #bp_rfi.rfi_plot(rfi_fil, 60, outdir)
+                                      diff_thresh=3, nchan_win=nchan_win)
+        # Make plots showing RFI stats calculated either with 
+        # 1 min of data of time/4, whichever is smallest 
+        rtime = bp_rfi.get_time_chunk(rfi_fil, 60, nt_min=4)
         outbase_rfi = "%s/bp" %outdir
-        bp_rfi.rfi_plot(rfi_fil, 60, outbase_rfi, bpass=True)
-        bp_rfi.rfi_plot(rfi_fil, 60, outbase_rfi, bpass=False)
+        bp_rfi.rfi_plot(rfi_fil, rtime, outbase_rfi, bpass=True)
+        bp_rfi.rfi_plot(rfi_fil, rtime, outbase_rfi, bpass=False)
     else:
         dec_dur = 0
         zap_str = ""

@@ -220,6 +220,31 @@ def dedisperse(filfile, dm, zapstr, zdm=False, outdir='.'):
     return datfile
 
 
+def filter_dat(datfile, zaplist):
+    """
+    Run filter on dat file 
+    """
+    if len(zaplist) == 0:
+        print("Skipping filter of dat file")
+        return datfile
+    else: pass
+    
+    zstr = ""
+    for zz in zaplist:
+        zstr += "-z %s " %zz
+    
+    filter_cmd = "python -u %s/dat_filter.py " %scriptdir +\
+                 "%s %s" %(zstr, datfile)
+    
+    print(filter_cmd)
+    call(filter_cmd, shell=True)
+
+    basename = datfile.rsplit('.dat', -1)[0]
+    outdat = "%s_filter.dat" %basename  
+
+    return outdat
+
+
 def sp_search(datfile, snr, bb=False, maxwidth=1.0, dtrendlen=8):
     """
     Run single pulse search
@@ -386,6 +411,13 @@ def parse_input():
     parser.add_argument('-ncs', '--nchansub', required=True, 
            help='Number of channels per subband',
            type=int, default=1024)
+    parser.add_argument('-f', '--filter',
+           help='Filter frequency - comma separated list giving the '+\
+                'center frequency, the number of harmonics beyond ' +\
+                'fundamental, and width in Hz (e.g., \'60.0,5,1.0\' to '+\
+                '60Hz signal and 5 harmonics with width 1.0Hz).  To zap '+\
+                'multiple frequencies, repeat this argument',
+           action='append', required=False, default=[])
     parser.add_argument('-mw', '--maxwidth', required=False, 
            help='Max boxcar width in ms for SP search (def: 10)',
            type=float, default=10.0)
@@ -433,6 +465,12 @@ def main():
     print("  Number of subbands: %d" %nsub)
     nchansub = args.nchansub
     print("  Number of channels per subband: %d" %nchansub)
+    filter_list = args.filter
+    if len(filter_list):
+        fzap_str = ';'.join(filter_list)
+    else:
+        fzap_str = "No filtering"
+    print("  Filtering (f0, nh, W): %s" %fzap_str)
     mw = args.maxwidth
     print("  Max single pulse template width: %.1fms" %mw)
     tel = args.tel
@@ -463,6 +501,10 @@ def main():
     ### Dedisperse ###
     print("\n\n===== DEDISPERSION =====")
     datfile = dedisperse(filfile, dm, zstr, zdm=zdm, outdir=outdir)
+
+    ### Frequency Filter ###
+    print("\n\n===== FILTERING =====")
+    datfile = filter_dat(datfile, filter_list)
 
     ### Single Pulse Search ###
     print("\n\n===== SP SEARCH =====")

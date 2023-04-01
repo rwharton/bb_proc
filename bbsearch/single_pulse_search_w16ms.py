@@ -480,7 +480,8 @@ def main():
             pchunks = (numchunks * 0.01 * np.arange(0, 101, 5)).astype('int')
             for chunknum in range(numchunks):
                 if chunknum in pchunks:
-                    print("Processing chunk: %d/%d" %(chunknum+1, numchunks))
+                    print("Processing chunk: %d/%d" %(chunknum, numchunks) +\
+                          "  (%.1f%%)" %(100 * chunknum/numchunks))
                 loind = chunknum*chunklen-overlap
                 hiind = (chunknum+1)*chunklen+overlap
                 # Take care of beginning and end of file overlap issues

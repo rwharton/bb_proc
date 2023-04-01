@@ -46,6 +46,12 @@ Running with the `-h` option will show the following usage:
                             Output size for candidate snippets in sec (def: 0.1)
       -mw MAXWIDTH, --maxwidth MAXWIDTH
                             Max boxcar width in ms for SP search (def: 10)
+      -f FILTER, --filter FILTER
+                            Filter frequency - comma separated list giving the
+                            center frequency, the number of harmonics beyond
+                            fundamental, and width in Hz (e.g., '60.0,5,1.0' to
+                            60Hz signal and 5 harmonics with width 1.0Hz). To zap
+                            multiple frequencies, repeat this argument
       --zerodm              Apply the zero DM filter when dedispersing
       --badblocks           Ignore bad blocks in single pulse search
       -tel TEL, --tel TEL   DSN Telescope Name GS/RO/CN (def: RO)
@@ -56,7 +62,7 @@ Here's an example of a recent processing run:
 
     python /src/bb_proc/bb_proc.py -dm 219.46 -nc 128 -nt 16 -m 64 
            -rt 500 -snr 8 -ezap 2 -w 0.1 -nsub 4 --badblocks -tel RO 
-           -mw 20 /shared/frb20220912A/22m316/xband xlcp-0001 .
+           -f 60,10,0.5 -mw 20 /shared/frb20220912A/22m316/xband xlcp-0001 .
 
 In this case, we are removing intrachannel delays by coherently 
 de-dispersing at DM=219.46 (`-dm`) and producing a filterbank with 
@@ -73,10 +79,15 @@ at the end of the files.  There are 4 channels in the baseband data (`-nsub`),
 which is important for flagging sub-band edge channels.  In this case, 
 we will zap two channels (`-ez`) at the edges of the sub-bands. 
 
-For the searching, we will first de-disperse to DM=219.46, then run 
-a modified version of PRESTO's `single_pulse_search.py` with much larger 
-boxcar widths.  Here, we are setting the minimum SNR limit to be 8 (`-snr`), 
-the maximum boxcar template width to be 20ms (`-mw`) and are ignoring candidates 
+For the searching, we will first de-disperse to DM=219.46.  If you want 
+to remove certain periodicities in the de-dispersed time series, you can 
+use the filter option.  In this case we use `-f 60,10,0.5` which sets the 
+fundamental at 60 Hz, selects 10 harmonics, and sets a zapping width of 
+0.5 Hz.  The filter will be run on the dat file before searching.
+The search is done with a modified version of PRESTO's `single_pulse_search.py` 
+with much larger boxcar widths.  Here, we are setting the minimum SNR limit 
+to be 8 (`-snr`), the maximum boxcar template width to be 20ms (`-mw`) and 
+are ignoring candidates 
 found in bad blocks (`--badblocks`).  For the candidates found we will create 
 snippet filterbank files of 0.1 seconds around each candidate (`-w`).  Using 
 these, we will make plots.  To avoid bursts of RFI, we will exclude from 

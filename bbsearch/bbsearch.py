@@ -316,7 +316,8 @@ def extract_snippets(filfile, outbase, splist, nspec):
     return 
 
 
-def your_extract_snippets(filfile, outbase, splist, nspec):
+def your_extract_snippets(filfile, outbase, splist, 
+                          nspec, nmax=-1):
     """
     Extract data around candidates and write to 
     small filterbank file.  Candidates input as 
@@ -326,7 +327,6 @@ def your_extract_snippets(filfile, outbase, splist, nspec):
     """
     # Get number of zeros to bad so cand nums
     # are all the same length
-    #nz = int( np.log10(len(splist)) + 0.5 )
     nz = int( np.ceil(np.log10(len(splist)+1)) )
 
     # Get hdr info
@@ -347,9 +347,14 @@ def your_extract_snippets(filfile, outbase, splist, nspec):
 
         # Now loop over cands and extract data
         for ii, cc in enumerate(spsort):
+            if nmax > 0 and ii >= nmax:
+                break
+            else:
+                pass
             print("Cand %d / %d" %(ii+1, len(spsort)))
             # Give index from orig file
-            num_str = str(xx[ii]).zfill(nz)  
+            #num_str = str(xx[ii]).zfill(nz)  
+            num_str = str(cc.cnum).zfill(nz)  
             outfile = "%s_cand%s" %(outbase, num_str)
 
             # start position in bytes
@@ -421,6 +426,10 @@ def parse_input():
     parser.add_argument('-mw', '--maxwidth', required=False, 
            help='Max boxcar width in ms for SP search (def: 10)',
            type=float, default=10.0)
+    parser.add_argument('-mc', '--maxcands', required=False, 
+           help='Max cands for plotting. ' +\
+                'Do not plot if exceeds this number. (def = -1, no lim)',
+           type=int, default=-1)
     parser.add_argument('--zerodm', action='store_true', 
            help='Apply the zero DM filter when dedispersing')
     parser.add_argument('--badblocks', action='store_true', 
@@ -475,6 +484,8 @@ def main():
     print("  Max single pulse template width: %.1fms" %mw)
     tel = args.tel
     print("  Telescope: %s" %tel)
+    max_cands = args.maxcands
+    print("  Max cands for plotting: %d" %max_cands)
     print("===================\n\n")
 
     # Check that fil file and output dir exist
@@ -515,6 +526,21 @@ def main():
 
     # Read cands from SP file
     splist = cands_from_spfile(spfile)
+    ncands = len(splist)
+    print("  Number of candidates: %d" %ncands) 
+
+    nplot = 10
+
+    if (max_cands > 0) and (ncands > max_cands):
+        print("\n\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print(" Found %d single pulse candidates" %ncands)
+        print(" which exceeds user defined limit of %d. " %max_cands)
+        print("")
+        print(" Will NOT extract all cands and make plots!")
+        print(" Will plot ~10 for diagnostic purposes")
+        print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    else:
+        nplot = -1
 
     ### Extract snippets ###
     print("\n\n===== EXTRACT CAND DATA =====")
@@ -525,7 +551,7 @@ def main():
 
     # Set spec + extract data
     nspec = int( width / dt + 0.5 )
-    your_extract_snippets(filfile, outbase, splist, nspec)
+    your_extract_snippets(filfile, outbase, splist, nspec, nmax=nplot)
 
     ### Make plots from candidates ###
     sbase = "%s_DM%.3f" %(filbase, dm)
@@ -541,9 +567,17 @@ def main():
 
     # Make cand plots
     pzstr = get_zap_chans(ezap, nchansub, nsub, zchans=zap, flip=False)
-    sp_plt.make_snippet_plots(spfile, outdir, sbase, outdir=outdir, 
-                              snr_min=snr, wmax=wmax, t_dec=-1, f_dec=f_dec,
-                              outbins=nbins, rmax=rmax, zstr=pzstr)
+   
+    if nplot > -1:
+        plt_splist = splist[: nplot] 
+    else:
+        plt_splist = spfile
+    sp_plt.make_snippet_plots(plt_splist, outdir, sbase, outdir=outdir, 
+                              snr_min=snr, wmax=wmax, t_dec=-1, 
+                              f_dec=f_dec, outbins=nbins, rmax=rmax, 
+                              zstr=pzstr)
+
+    return
 
 
 debug = 0

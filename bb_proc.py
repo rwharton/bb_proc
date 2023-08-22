@@ -111,7 +111,7 @@ def make_rfi_fil(filfile, outdir, tfac=512, nthread=1):
     return tdur, outfile
 
 
-def run_search(filfile, outdir, nchan, nsub, dm, snr, mw,  
+def run_search(filfile, outdir, nchan, nsub, dm, snr, mw, max_cands, 
                width=0.1, tel='RO', edgezap=2, zap_str="", 
                fzaps=[], avoid_badblocks=False, apply_zerodm=False):
     """
@@ -154,6 +154,7 @@ def run_search(filfile, outdir, nchan, nsub, dm, snr, mw,
           "-ncs %d " %(int(nchan/nsub)) +\
           "%s " %fz_str +\
           "-tel %s " %tel +\
+          "-mc %d " %max_cands +\
           "%s %s " %(filfile, outdir)
    
     # Run command 
@@ -173,15 +174,17 @@ def parse_input():
     prog_desc = "Pipeline to process and search baseband data"
     parser = ArgumentParser(description=prog_desc)
 
-    parser.add_argument('csdir', help='Directory containing *.cs files')
-    parser.add_argument('basename', help='Base name of cs file: {basename}*.cs')
+    parser.add_argument('csdir', 
+                        help='Directory containing *.cs files')
+    parser.add_argument('basename', 
+                        help='Base name of cs file: {basename}*.cs')
     parser.add_argument('outdir', help='Output data directory')
     parser.add_argument('-dm', '--dm', 
                         help='DM for intra-channel coherent dedispersion',
                         required=True, type=float)
     parser.add_argument('-nc', '--nchan', 
-                        help='Total number of output channels in filterbank',
-                        required=True, type=int)
+                       help='Total number of output channels in filterbank',
+                       required=True, type=int)
     parser.add_argument('-m', '--memlim', default=16.0,  
                         help='Max memory to use during DADA conversion in GB (def: 16)',
                         required=False, type=float)
@@ -207,6 +210,10 @@ def parse_input():
     parser.add_argument('-mw', '--maxwidth', required=False,
                         help='Max boxcar width in ms for SP search (def: 10)',
                         type=float, default=10.0)
+    parser.add_argument('-mc', '--maxcands', required=False,
+                        help='Max cands for plotting. ' +\
+                        'Do not plot if exceeds this number. (def = -1, no lim)',
+                        type=int, default=-1)
     parser.add_argument('-f', '--filter',
            help='Filter frequency - comma separated list giving the '+\
                 'center frequency, the number of harmonics beyond ' +\
@@ -260,6 +267,8 @@ def main():
     print("  Candidate Snippet Size: %.3f sec" %width)
     mw = args.maxwidth
     print("  Max single pulse template width: %.1fms" %mw)
+    max_cands = args.maxcands
+    print("  Max cands for plotting: %d" %max_cands)
     ezap = args.edgezap
     print("  Edge Channels to zap: %d" %ezap)
     nsub = args.nsub
@@ -331,7 +340,7 @@ def main():
     else: 
         pass
      
-    tsearch = run_search(filfile, outdir, nchan, nsub, dm, snr, mw, 
+    tsearch = run_search(filfile, outdir, nchan, nsub, dm, snr, mw, max_cands, 
                  width=width, tel=tel, edgezap=ezap, zap_str=zap_str, 
                  fzaps=filter_list, avoid_badblocks=blocks, apply_zerodm=zdm)
 

@@ -46,6 +46,9 @@ Running with the `-h` option will show the following usage:
                             Output size for candidate snippets in sec (def: 0.1)
       -mw MAXWIDTH, --maxwidth MAXWIDTH
                             Max boxcar width in ms for SP search (def: 10)
+      -mc MAXCANDS, --maxcands MAXCANDS
+                        Max cands for plotting. Do not plot if exceeds this
+                        number. (def = -1, no lim)
       -f FILTER, --filter FILTER
                             Filter frequency - comma separated list giving the
                             center frequency, the number of harmonics beyond
@@ -62,7 +65,7 @@ Here's an example of a recent processing run:
 
     python /src/bb_proc/bb_proc.py -dm 219.46 -nc 128 -nt 16 -m 64 
            -rt 500 -snr 8 -ezap 2 -w 0.1 -nsub 4 --badblocks -tel RO 
-           -f 60,10,0.5 -mw 20 /shared/frb20220912A/22m316/xband xlcp-0001 .
+           -f 60,10,0.5 -mw 20 -mc 9000 /shared/frb20220912A/22m316/xband xlcp-0001 .
 
 In this case, we are removing intrachannel delays by coherently 
 de-dispersing at DM=219.46 (`-dm`) and producing a filterbank with 
@@ -93,6 +96,15 @@ snippet filterbank files of 0.1 seconds around each candidate (`-w`).  Using
 these, we will make plots.  To avoid bursts of RFI, we will exclude from 
 plots any candidates that fall during a minute with more than 500 bursts 
 per minute (`-rt`).
+
+We can also optionally set an upper limit to the candidates (`-mc`) beyond 
+which candidate filterbanks and plots will **not** be made.  This is a minor 
+precaution against observations with lots of RFI or strong 60 Hz signal where 
+the code would take forever to make useless plots.  If the number of candidates 
+found by the single pulse search exceeds the value given by `-mc` (in our 
+example here, 9000), then plots of the first 10 candidates will be made for 
+diagnostic purposes and then no other candidates will be plotted.  There will 
+still be a summary plot showing the number of candidates over time.
 
 The `-tel` option allows you to set the telescope name in the output filterbank 
 header.  Right now, you can just give one of the three DSN dish names.

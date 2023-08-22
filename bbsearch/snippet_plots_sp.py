@@ -42,7 +42,7 @@ def cands_from_spfile(spfile):
     Read in the candidates from a *singlepulse (sp) file
     and return an array of SP_CAND class objects
     """
-    ii = 0
+    ii = 1
     candlist = []
     with open(spfile, 'r') as fin:
         for line in fin:

@@ -714,8 +714,8 @@ def time_summary(csift, clist, title=None, outfile=None, rmax=-1):
 
     fig = plt.figure(figsize=(14, 10))
     ax1 = fig.add_subplot(3, 1, 1)
-    ax2 = fig.add_subplot(3, 1, 2)
-    ax3 = fig.add_subplot(3, 1, 3)
+    ax2 = fig.add_subplot(3, 1, 2, sharex=ax1)
+    ax3 = fig.add_subplot(3, 1, 3, sharex=ax1)
 
     tt0, snr0, dm0, ww0 = cand_params(clist)
     tt1, snr1, dm1, ww1 = cand_params(csift)
